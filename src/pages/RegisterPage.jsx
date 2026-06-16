@@ -10,7 +10,7 @@ export default function RegisterPage() {
             Lucky Winner 🎰
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-white/75 sm:text-base sm:leading-7 lg:text-lg">
-            Register for your chance to win in the university fundraising competition.
+            Register participants and set the draw time for the university fundraising competition.
           </p>
         </section>
 
