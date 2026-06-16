@@ -12,6 +12,7 @@ Built with React, Vite, Tailwind CSS, React Router v6, and Firebase Firestore.
 1. Create a Firebase project in the Firebase Console.
 2. Enable Firestore Database.
 3. Copy your web app config values into a local `.env` file in the project root.
+4. If Firestore requests that the API be enabled, open the Google Cloud Firestore API overview for the project and enable `firestore.googleapis.com`.
 
 Example variables:
 

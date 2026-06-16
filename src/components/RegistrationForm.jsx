@@ -32,7 +32,7 @@ function CustomSelect({ id, value, onChange, options, placeholder, disabled = fa
       <button
         type="button"
         id={id}
-        className="lucky-input flex min-h-11 items-center justify-between gap-3 text-left text-base"
+        className="lucky-input flex min-h-11 items-center justify-between gap-3 bg-slate-950/90 text-left text-base"
         onClick={() => setIsOpen((currentValue) => !currentValue)}
         disabled={disabled}
         aria-haspopup="listbox"
@@ -43,7 +43,7 @@ function CustomSelect({ id, value, onChange, options, placeholder, disabled = fa
       </button>
 
       {isOpen ? (
-        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950/98 shadow-2xl">
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-white/15 bg-slate-950 shadow-2xl ring-1 ring-white/10">
           <div role="listbox" aria-label={placeholder} className="max-h-64 overflow-auto p-2">
             {options.map((item) => {
               const isSelected = value === item;
@@ -53,7 +53,7 @@ function CustomSelect({ id, value, onChange, options, placeholder, disabled = fa
                   key={item}
                   type="button"
                   className={`flex min-h-11 w-full items-center rounded-xl px-4 py-3 text-left text-base transition ${
-                    isSelected ? 'bg-gold-300/15 text-gold-300' : 'text-white/85 hover:bg-white/5 hover:text-white'
+                    isSelected ? 'bg-gold-300/20 text-gold-300' : 'bg-slate-900/80 text-white/90 hover:bg-slate-800 hover:text-white'
                   }`}
                   onClick={() => {
                     onChange(item);
