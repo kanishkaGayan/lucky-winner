@@ -3,13 +3,8 @@ import { onSnapshot, runTransaction } from 'firebase/firestore';
 import CountdownTimer from '../components/CountdownTimer';
 import ForgotNumberModal from '../components/ForgotNumberModal';
 import SlotMachine from '../components/SlotMachine';
-import WinnerCard from '../components/WinnerCard';
 import { announcementDocRef, db, isFirebaseConfigured, participantsCollection } from '../firebase/config';
 import { collection, getDocs } from 'firebase/firestore';
-
-function formatMs(remainingMs) {
-  return Math.max(0, remainingMs);
-}
 
 function pickRandomFromList(items) {
   if (!items.length) {
@@ -19,22 +14,14 @@ function pickRandomFromList(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function getRollingDisplay(participants) {
-  if (participants.length >= 20) {
-    return pickRandomFromList(participants);
-  }
-
-  return String(Math.floor(Math.random() * 10000)).padStart(4, '0');
-}
-
 export default function WinnerPage() {
   const [participants, setParticipants] = useState([]);
   const [announcement, setAnnouncement] = useState({ announcementDate: null, winnerId: '' });
   const [now, setNow] = useState(Date.now());
-  const [displayValue, setDisplayValue] = useState('0000');
   const [winnerId, setWinnerId] = useState('');
   const [isRevealing, setIsRevealing] = useState(false);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [isWinnerRevealed, setIsWinnerRevealed] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Loading draw details...');
   const [error, setError] = useState('');
   const revealLock = useRef(false);
@@ -91,14 +78,14 @@ export default function WinnerPage() {
   }, []);
 
   const announcementTime = announcement.announcementDate?.toDate ? announcement.announcementDate.toDate().getTime() : null;
-  const remainingMs = announcementTime ? formatMs(announcementTime - now) : null;
-  const hasWinner = Boolean(announcement.winnerId || winnerId);
+  const remainingMs = announcementTime ? Math.max(0, announcementTime - now) : null;
   const activeWinnerId = announcement.winnerId || winnerId;
+  const shouldShowBanner = isWinnerRevealed || (activeWinnerId && !isRevealing);
 
   useEffect(() => {
     if (activeWinnerId) {
-      setDisplayValue(String(activeWinnerId).padStart(4, '0'));
       setIsRevealing(false);
+      setIsWinnerRevealed(true);
       setStatusMessage('The winner has been revealed.');
       revealLock.current = false;
       return undefined;
@@ -117,20 +104,16 @@ export default function WinnerPage() {
       setStatusMessage('The draw is counting down to the scheduled announcement time.');
       setIsRevealing(false);
       revealLock.current = false;
-      const cycle = setInterval(() => {
-        setDisplayValue(getRollingDisplay(participants));
-      }, 1000);
-      return () => clearInterval(cycle);
+      setIsWinnerRevealed(false);
+      return undefined;
     }
 
     if (!revealLock.current && participants.length > 0) {
       revealLock.current = true;
       setIsRevealing(true);
-      setStatusMessage('The draw has started. Revealing the winner...');
+      setIsWinnerRevealed(false);
+      setStatusMessage('The draw has started. Jackpot reels are spinning...');
 
-      let fastTimer = null;
-      let slowTimer = null;
-      let stageTimer = null;
       const revealWinner = async () => {
         try {
           const chosenWinner = await runTransaction(db, async (transaction) => {
@@ -154,27 +137,7 @@ export default function WinnerPage() {
             throw new Error('A winner could not be selected.');
           }
 
-          fastTimer = setInterval(() => {
-            setDisplayValue(getRollingDisplay(participants));
-          }, 80);
-
-          stageTimer = setTimeout(() => {
-            clearInterval(fastTimer);
-            setStatusMessage('Narrowing to the winning number...');
-            slowTimer = setInterval(() => {
-              setDisplayValue(getRollingDisplay(participants));
-            }, 180);
-          }, 5000);
-
-          setTimeout(() => {
-            if (slowTimer) {
-              clearInterval(slowTimer);
-            }
-            setWinnerId(chosenWinner);
-            setDisplayValue(String(chosenWinner).padStart(4, '0'));
-            setIsRevealing(false);
-            setStatusMessage('The winner has been confirmed.');
-          }, 7500);
+          setWinnerId(chosenWinner);
         } catch (drawError) {
           revealLock.current = false;
           setError(drawError instanceof Error ? drawError.message : 'Unable to complete the automatic draw.');
@@ -182,18 +145,6 @@ export default function WinnerPage() {
       };
 
       revealWinner();
-
-      return () => {
-        if (fastTimer) {
-          clearInterval(fastTimer);
-        }
-        if (slowTimer) {
-          clearInterval(slowTimer);
-        }
-        if (stageTimer) {
-          clearTimeout(stageTimer);
-        }
-      };
     }
 
     if (remainingMs === 0 && participants.length === 0) {
@@ -203,22 +154,22 @@ export default function WinnerPage() {
     return undefined;
   }, [activeWinnerId, announcementTime, participants, remainingMs]);
 
-  useEffect(() => {
-    if (!activeWinnerId && !isRevealing) {
-      setDisplayValue((currentValue) => currentValue || getRollingDisplay(participants));
-    }
-  }, [activeWinnerId, isRevealing, participants]);
-
   const content = useMemo(() => {
-    if (activeWinnerId) {
-      return <WinnerCard winnerId={activeWinnerId} />;
-    }
-
     return (
       <section className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 text-center sm:gap-8">
-        {remainingMs !== null && remainingMs > 0 ? <CountdownTimer remainingMs={remainingMs} /> : null}
+        {remainingMs !== null && remainingMs > 0 && !shouldShowBanner ? <CountdownTimer remainingMs={remainingMs} /> : null}
         <div className="w-full rounded-[2rem] border border-gold-300/20 bg-black/30 px-3 py-6 shadow-[0_0_48px_rgba(245,197,24,0.16)] backdrop-blur-xl sm:px-6 sm:py-10">
-          <SlotMachine value={displayValue} rolling={remainingMs === 0 || isRevealing} reveal={isRevealing} />
+          <SlotMachine
+            participants={participants}
+            winnerUID={winnerId || activeWinnerId}
+            isRevealing={isRevealing}
+            onRevealComplete={(winnerUID) => {
+              setWinnerId(winnerUID);
+              setIsWinnerRevealed(true);
+              setIsRevealing(false);
+              setStatusMessage('The winner has been confirmed.');
+            }}
+          />
         </div>
         <button
           type="button"
@@ -227,10 +178,23 @@ export default function WinnerPage() {
         >
           Forgot My Number?
         </button>
-        <p className="max-w-2xl text-sm leading-6 text-white/75 sm:text-base sm:leading-7">{statusMessage}</p>
+        {shouldShowBanner ? (
+          <div className="card-shell w-full max-w-2xl px-5 py-6 text-center sm:px-8">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.4em] text-green-300/80">🏆 We Have a Winner!</p>
+            <div className="mx-auto mb-5 inline-flex min-w-0 items-center justify-center rounded-[2rem] border border-green-300/30 bg-green-400/10 px-4 py-4 shadow-neon sm:px-6">
+              <span className="font-orbitron text-4xl font-extrabold tracking-[0.22em] text-green-300 sm:text-6xl sm:tracking-[0.35em]">
+                {String(winnerId || activeWinnerId || '0000').padStart(4, '0')}
+              </span>
+            </div>
+            <p className="text-base font-semibold text-white sm:text-xl">Participant #{String(winnerId || activeWinnerId || '0000').padStart(4, '0')}</p>
+            <p className="mt-3 text-sm leading-6 text-white/75 sm:text-base">Please contact the organizing committee to claim your prize.</p>
+          </div>
+        ) : (
+          <p className="max-w-2xl text-sm leading-6 text-white/75 sm:text-base sm:leading-7">{statusMessage}</p>
+        )}
       </section>
     );
-  }, [activeWinnerId, displayValue, isRevealing, remainingMs, statusMessage]);
+  }, [activeWinnerId, isRevealing, participants, remainingMs, shouldShowBanner, statusMessage, winnerId]);
 
   return (
     <main className="relative min-h-[calc(100vh-80px)] overflow-hidden px-4 py-10 sm:px-6 lg:px-8 lg:py-14">

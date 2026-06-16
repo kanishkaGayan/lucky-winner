@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { doc, onSnapshot, runTransaction, serverTimestamp } from 'firebase/firestore';
+import { Timestamp, doc, onSnapshot, runTransaction, serverTimestamp, setDoc } from 'firebase/firestore';
 import { announcementDocRef, db, isFirebaseConfigured } from '../firebase/config';
 
 const departments = [
@@ -118,9 +118,12 @@ export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [registeredParticipant, setRegisteredParticipant] = useState(null);
+  const [showSuccess, setShowSuccess] = useState(false);
   const [announcementDateTime, setAnnouncementDateTime] = useState('');
   const [announcementSaving, setAnnouncementSaving] = useState(false);
   const [announcementMessage, setAnnouncementMessage] = useState('');
+  const [announcementWinnerId, setAnnouncementWinnerId] = useState('');
+  const [winnerDetails, setWinnerDetails] = useState(null);
 
   useEffect(() => {
     if (!isFirebaseConfigured) {
@@ -139,10 +142,55 @@ export default function RegistrationForm() {
         ].join('-') + `T${pad(date.getHours())}:${pad(date.getMinutes())}`;
         setAnnouncementDateTime(localValue);
       }
+
+      setAnnouncementWinnerId(data.winnerId || '');
     });
   }, []);
 
+  useEffect(() => {
+    if (!isFirebaseConfigured || !announcementWinnerId) {
+      setWinnerDetails(null);
+      return undefined;
+    }
+
+    const winnerRef = doc(db, 'participants', announcementWinnerId);
+    return onSnapshot(winnerRef, (snapshot) => {
+      const data = snapshot.data();
+
+      if (!snapshot.exists() || !data) {
+        setWinnerDetails({
+          uid: announcementWinnerId,
+          name: 'Unknown participant',
+          telephone: '-',
+          department: '-'
+        });
+        return;
+      }
+
+      setWinnerDetails({
+        uid: data.uid || announcementWinnerId,
+        name: data.name || 'Unknown participant',
+        telephone: data.telephone || '-',
+        department: data.department || '-'
+      });
+    });
+  }, [announcementWinnerId]);
+
   const telephonePattern = useMemo(() => /^\+?[0-9\s()-]{7,20}$/, []);
+
+  useEffect(() => {
+    if (!registeredParticipant) {
+      return undefined;
+    }
+
+    setShowSuccess(true);
+    const timer = setTimeout(() => {
+      setShowSuccess(false);
+      setRegisteredParticipant(null);
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [registeredParticipant]);
 
   const handleAnnouncementSave = async (event) => {
     event.preventDefault();
@@ -160,14 +208,18 @@ export default function RegistrationForm() {
 
     setAnnouncementSaving(true);
     try {
-      const { Timestamp, setDoc } = await import('firebase/firestore');
       await setDoc(announcementDocRef, {
         announcementDate: Timestamp.fromDate(new Date(announcementDateTime)),
         winnerId: ''
       }, { merge: true });
       setAnnouncementMessage('Announcement time saved successfully.');
-    } catch {
-      setAnnouncementMessage('Unable to save the announcement time. Please try again.');
+    } catch (saveError) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to save announcement time:', saveError);
+      const fallbackMessage = saveError instanceof Error && saveError.message
+        ? saveError.message
+        : 'Please try again.';
+      setAnnouncementMessage(`Unable to save the announcement time. ${fallbackMessage}`);
     } finally {
       setAnnouncementSaving(false);
     }
@@ -204,6 +256,7 @@ export default function RegistrationForm() {
       });
 
       setRegisteredParticipant({ uid, name: trimmedName });
+      setAnnouncementMessage('');
       setFullName('');
       setTelephone('');
       setDepartment('');
@@ -214,9 +267,19 @@ export default function RegistrationForm() {
     }
   };
 
-  if (registeredParticipant) {
+  if (registeredParticipant && showSuccess) {
     return (
       <section className="card-shell mx-auto w-full max-w-md p-4 text-center sm:p-8">
+        <button
+          type="button"
+          className="mb-4 ml-auto inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 px-4 py-2 text-sm font-medium text-white/75 transition hover:border-gold-300/40 hover:text-white"
+          onClick={() => {
+            setShowSuccess(false);
+            setRegisteredParticipant(null);
+          }}
+        >
+          Close
+        </button>
         <p className="mb-3 text-sm font-semibold uppercase tracking-[0.35em] text-green-300">🎉 You're Registered!</p>
         <h2 className="font-orbitron text-2xl font-bold text-white sm:text-4xl">{registeredParticipant.name}</h2>
         <div className="mt-6 rounded-[2rem] border border-gold-300/25 bg-white/5 px-4 py-5 shadow-[0_0_30px_rgba(245,197,24,0.1)] sm:px-6">
@@ -237,6 +300,20 @@ export default function RegistrationForm() {
 
   return (
     <section className="card-shell mx-auto w-full max-w-md p-4 sm:p-8">
+      {winnerDetails ? (
+        <div className="mb-6 rounded-[2rem] border border-green-300/25 bg-green-400/10 p-4 text-left shadow-neon sm:p-5">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.35em] text-green-300/80">🏆 Winner Announced</p>
+          <p className="font-orbitron text-3xl font-bold tracking-[0.2em] text-green-300 sm:text-4xl">
+            {winnerDetails.uid}
+          </p>
+          <div className="mt-4 space-y-2 text-sm leading-6 text-white/85 sm:text-base">
+            <p><span className="text-white/60">Name:</span> {winnerDetails.name}</p>
+            <p><span className="text-white/60">Telephone:</span> {winnerDetails.telephone}</p>
+            <p><span className="text-white/60">Department:</span> {winnerDetails.department}</p>
+          </div>
+        </div>
+      ) : null}
+
       <form className="space-y-5" onSubmit={handleAnnouncementSave}>
         <div>
           <label className="lucky-label" htmlFor="announcementDateTime">Announcement Date & Time</label>

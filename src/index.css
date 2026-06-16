@@ -53,7 +53,20 @@ body {
   }
 
   .slot-reel {
-    @apply flex h-20 w-16 items-center justify-center rounded-2xl border border-gold-300/20 bg-black/40 text-5xl font-bold text-gold-300 shadow-[0_0_24px_rgba(245,197,24,0.24)] sm:h-36 sm:w-24 sm:rounded-3xl sm:text-8xl;
+    @apply flex h-20 w-16 items-center justify-center overflow-hidden rounded-2xl border border-gold-300/20 bg-black/40 shadow-[0_0_24px_rgba(245,197,24,0.24)] sm:h-36 sm:w-24 sm:rounded-3xl;
+    font-family: 'Orbitron', sans-serif;
+  }
+
+  .slot-reel-window {
+    @apply relative h-full w-full overflow-hidden;
+  }
+
+  .slot-reel-strip {
+    @apply flex h-[2000%] flex-col transform-gpu transition-transform duration-700 ease-out;
+  }
+
+  .slot-reel-digit {
+    @apply flex h-[5%] w-full items-center justify-center text-5xl font-bold text-gold-300 sm:text-8xl;
     font-family: 'Orbitron', sans-serif;
   }
 
