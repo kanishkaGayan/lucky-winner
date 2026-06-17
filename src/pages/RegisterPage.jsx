@@ -1,4 +1,5 @@
 import RegistrationForm from '../components/RegistrationForm';
+import StudentAdminPanel from '../admin/StudentAdminPanel';
 
 export default function RegisterPage() {
   return (
@@ -15,6 +16,18 @@ export default function RegisterPage() {
         </section>
 
         <RegistrationForm />
+
+        <section className="space-y-4">
+          <div className="text-center">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.35em] text-gold-300/75 sm:text-sm">Admin Dashboard</p>
+            <h2 className="font-orbitron text-2xl font-bold text-gold-300 sm:text-3xl">Student management</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-white/70 sm:text-base">
+              Use this panel to edit, update, and remove student registrations, grouped by department with income totals calculated at 50 LKR per ticket.
+            </p>
+          </div>
+
+          <StudentAdminPanel />
+        </section>
       </div>
     </main>
   );

@@ -27,6 +27,15 @@ VITE_FIREBASE_APP_ID=your_app_id
 
 The app reads these values from `import.meta.env` in `src/firebase/config.js`.
 
+### Admin Student Management
+
+The protected `/register` page now includes an admin student management panel that reads from the `participants` collection. It supports:
+
+- Listing students in a table
+- Filtering and sorting by department
+- Editing and deleting participant records
+- Showing ticket income totals at 50 LKR per student
+
 ### Admin Session Login
 
 The registration portal is protected with a simple session-based admin login.
